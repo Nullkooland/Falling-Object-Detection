@@ -108,9 +108,14 @@ static argparse::ArgumentParser getArgParser() {
         .action([](const std::string& arg) { return std::stoul(arg); });
 
     parser.add_argument("--resize")
-        .help("Resize to given longside width")
+        .help("Resize to given height")
         .default_value(-1)
         .action([](const std::string& arg) { return std::stoi(arg); });
+
+    parser.add_argument("--rotate")
+        .help("Rotate video by 90 degrees clockwise")
+        .default_value(false)
+        .implicit_value(true);
 
     parser.add_argument("--log")
         .help("Log tracked objects to file")
@@ -229,9 +234,6 @@ int main(int argc, char* argv[]) {
     auto* decoderParameters = videoStream->codecpar;
     int widthRaw = decoderParameters->width;
     int heightRaw = decoderParameters->height;
-    // int framerate = codecParameters->sample_rate;
-
-    int resizedWidth = parser.get<int>("--resize");
 
     // Extract framerate
     double fps = av_q2d(videoStream->r_frame_rate);
@@ -240,19 +242,27 @@ int main(int argc, char* argv[]) {
     logInterval =
         (logInterval == 0) ? static_cast<size_t>(std::round(fps)) : logInterval;
 
-    // Resize along width
+    // Resize along height
+    int resizedHeight = parser.get<int>("--resize");
+
     bool isResize = false;
     int width;
     int height;
-    if (resizedWidth > 320 && resizedWidth <= widthRaw) {
+
+    if (resizedHeight > 320 && resizedHeight <= heightRaw) {
         isResize = true;
 
-        width = resizedWidth;
-        height = static_cast<int>(
-            (static_cast<float>(resizedWidth) / widthRaw) * heightRaw);
+        height = resizedHeight;
+        width = static_cast<int>((static_cast<float>(height) / heightRaw) *
+                                 widthRaw);
     } else {
-        width = widthRaw;
         height = heightRaw;
+        width = widthRaw;
+    }
+
+    bool isRotate = parser.get<bool>("--rotate");
+    if (isRotate) {
+        std::swap(width, height);
     }
 
     // Init decoder
@@ -283,25 +293,47 @@ int main(int argc, char* argv[]) {
     //     "data/test.mp4", cv::VideoWriter::fourcc('h', '2', '6', '4'), 15,
     //     {1280, 720});
 
+    cv::Mat frame;
+    cv::Mat tempFrame;
     size_t frameCount = 0;
 
 #if defined(ROCKCHIP_PLATFORM)
     // Allocate RGB frame
-    cv::Mat frame(height, width, CV_8UC3);
+    frame = cv::Mat(height, width, CV_8UC3);
+
+    if (isRotate) {
+        tempFrame = cv::Mat(width, height, CV_8UC3);
+    }
 #else
     // Allocate AVFrame for RGB data
     SwsContext* swsContext = nullptr;
     auto* avFrameBGR = av_frame_alloc();
+    avFrameBGR->width = isRotate ? height : width;
+    avFrameBGR->height = isRotate ? width : height;
+
     av_image_alloc(avFrameBGR->data,
                    avFrameBGR->linesize,
-                   width,
-                   height,
+                   avFrameBGR->width,
+                   avFrameBGR->height,
                    AVPixelFormat::AV_PIX_FMT_BGR24,
                    16);
 
     // Wrap AVFrame to OpenCV Mat (underlying buffer is shared with AVFrame)
-    cv::Mat frame(
-        height, width, CV_8UC3, avFrameBGR->data[0], avFrameBGR->linesize[0]);
+    if (isRotate) {
+        frame = cv::Mat(height, width, CV_8UC3);
+        tempFrame = cv::Mat(width,
+                            height,
+                            CV_8UC3,
+                            avFrameBGR->data[0],
+                            avFrameBGR->linesize[0]);
+    } else {
+        frame = cv::Mat(height,
+                        width,
+                        CV_8UC3,
+                        avFrameBGR->data[0],
+                        avFrameBGR->linesize[0]);
+    }
+
 #endif
 
     // Create vibe algorithm instance
@@ -331,7 +363,7 @@ int main(int argc, char* argv[]) {
             }
 
 #if defined(ROCKCHIP_PLATFORM)
-            cv::imwrite(str.data(), annoFrame);
+            cv::imwrite(str.data(), anno);
 #else
             cv::imshow(str.data(), anno);
             cv::waitKey();
@@ -359,7 +391,6 @@ int main(int argc, char* argv[]) {
                cv::getTickFrequency() * 1e3;
     };
 
-    
     // auto colors = Utils::getRandomColors<32>();
 
     // Start play
@@ -424,27 +455,43 @@ int main(int argc, char* argv[]) {
                                             heightRaw,
                                             RK_FORMAT_YCbCr_420_SP);
 
-            size_t wstride = frame.step[0] / 3;
-            auto dst = rga::wrapbuffer_virtualaddr_t(
-                frame.data, width, height, wstride, height, RK_FORMAT_BGR_888);
+            auto dst = rga::wrapbuffer_virtualaddr_t(isRotate ? tempFrame.data
+                                                              : frame.data,
+                                                     isRotate ? height : width,
+                                                     isRotate ? width : height,
+                                                     isRotate ? height : width,
+                                                     isRotate ? width : height,
+                                                     RK_FORMAT_BGR_888);
 
             rga::imcvtcolor_t(src,
                               dst,
                               src.format,
                               dst.format,
                               rga::IM_COLOR_SPACE_DEFAULT,
-                              1);
+                              0);
 
-            cv::imwrite(outputDir + "/frame.jpg", frame);
+            if (isRotate) {
+                src = dst;
+                dst = rga::wrapbuffer_virtualaddr_t(frame.data,
+                                                    width,
+                                                    height,
+                                                    width,
+                                                    height,
+                                                    RK_FORMAT_BGR_888);
+
+                rga::imrotate_t(src, dst, rga::IM_HAL_TRANSFORM_ROT_90, 0);
+            }
+
+            rga::imsync();
 #else
 
             swsContext = sws_getCachedContext(
                 swsContext,
-                widthRaw,
-                heightRaw,
+                avFrameYUV->width,
+                avFrameYUV->height,
                 static_cast<AVPixelFormat>(avFrameYUV->format),
-                width,
-                height,
+                avFrameBGR->width,
+                avFrameBGR->height,
                 AVPixelFormat::AV_PIX_FMT_BGR24,
                 SWS_FAST_BILINEAR,
                 nullptr,
@@ -455,10 +502,13 @@ int main(int argc, char* argv[]) {
                       avFrameYUV->data,
                       avFrameYUV->linesize,
                       0,
-                      heightRaw,
+                      avFrameYUV->height,
                       avFrameBGR->data,
                       avFrameBGR->linesize);
 
+            if (isRotate) {
+                cv::rotate(tempFrame, frame, cv::ROTATE_90_CLOCKWISE);
+            }
 #endif
             tickEnd = cv::getTickCount();
             double decodeTimeMs = getTimespanMs(tickBegin, tickEnd);
@@ -549,9 +599,11 @@ int main(int argc, char* argv[]) {
 
 // Draw results
 #if defined(ROCKCHIP_PLATFORM)
-            // cv::imwrite("output/frame.png", frame);
-            // cv::imwrite("output/fgmask.png", fgMask);
-            // cv::imwrite("output/update_mask.png", updateMask);
+            if (isVerbose && frameCount % logInterval == 0) {
+                cv::imwrite(outputDir + "/frame.png", frame);
+                cv::imwrite(outputDir + "/fgmask.png", fgMask);
+                cv::imwrite(outputDir + "/update_mask.png", updateMask);
+            }
 #else
             cv::imshow("frame", frame);
             cv::imshow("fgmask", fgMask);

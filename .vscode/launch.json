@@ -23,10 +23,11 @@
                 // "--file", "live"
                 "--local",
                 "--file",
-                "data/apartment.mp4",
+                "data/apartment.264",
                 // "data/office_building_floor_15.avi",
                 "--resize",
-                "720"
+                "720",
+                "--rotate"
             ],
             "cwd": "${workspaceFolder}"
         },
@@ -51,7 +52,8 @@
                 "--file",
                 "/home/goose_bomb/cv/videos/apartment.264",
                 "--resize",
-                "1280"
+                "720",
+                "--rotate"
             ],
             "console": "internalConsole",
             "internalConsoleOptions": "openOnSessionStart",
