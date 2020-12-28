@@ -7,11 +7,11 @@ This is a video analysis system that can detect and track falling objects from a
 2. Rockchip ARMv8 Linux
 
 ## Dependencies
-- [OpenCV] (https://github.com/opencv/opencv)
-- [FFMpeg] (https://ffmpeg.org)
-- [argparse] (https://github.com/p-ranav/argparse)
-- [libvibe++] (http://www.telecom.ulg.ac.be/research/vibe/doc2/index.html)
-- [Rockchip-RGA] (https://github.com/rockchip-linux/linux-rga)
+- [OpenCV](https://github.com/opencv/opencv) 4.5
+- [FFMpeg](https://ffmpeg.org) 4.3.1
+- [argparse](https://github.com/p-ranav/argparse)
+- [libvibe++](http://www.telecom.ulg.ac.be/research/vibe/doc2/index.html)
+- [Rockchip-RGA](https://github.com/rockchip-linux/linux-rga)
 
 ## Demonstration
 ![Tracking a falling bottle](images/falling_bottle_trajectory.jpg)
