@@ -1,0 +1,29 @@
+set(CMAKE_SYSTEM_NAME Linux)
+set(CMAKE_SYSTEM_PROCESSOR aarch64)
+
+set(LLVM_ROOT "/usr/local/opt/llvm")
+set(TARGET aarch64-linux-gnu)
+set(SYSROOT "/Users/goose_bomb/Documents/DIG/embedded/sysroot")
+
+set(CMAKE_C_COMPILER "${LLVM_ROOT}/bin/clang")
+set(CMAKE_C_COMPILER_TARGET ${TARGET})
+set(CMAKE_CXX_COMPILER "${LLVM_ROOT}/bin/clang++")
+set(CMAKE_CXX_COMPILER_TARGET ${TARGET})
+
+set(CMAKE_SYSROOT ${SYSROOT})
+set(CMAKE_FIND_ROOT_PATH ${SYSROOT})
+set(CMAKE_INSTALL_PREFIX "/usr")
+
+set(ENV{PKG_CONFIG_PATH} "${SYSROOT}/usr/lib/pkgconfig")
+set(ENV{PKG_CONFIG_LIBDIR} "${SYSROOT}/usr/lib/pkgconfig")
+set(ENV{PKG_CONFIG_SYSROOT_DIR} ${CMAKE_SYSROOT})
+
+set(CMAKE_SHARED_LINKER_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=lld")
+set(CMAKE_EXE_LINKER_FLAGS "${CMAKE_CXX_FLAGS} -fuse-ld=lld")
+
+set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)
+set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)
+set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)
+
+option(ROCKCHIP_PLATFORM "Cross-compile for Rockchip platform" ON)

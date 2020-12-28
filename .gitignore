@@ -1,0 +1,7 @@
+build/
+data/
+.cache/
+*.o
+*.so
+.DS_Store
+desktop.ini
