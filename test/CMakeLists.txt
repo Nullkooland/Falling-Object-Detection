@@ -26,6 +26,26 @@ target_link_libraries(kalman_filter_test PRIVATE ${TEST_LINK_LIBS})
 target_include_directories(kalman_filter_test PRIVATE ${KALMAN_TEST_INC_DIRS})
 
 
+# ViBe test
+set(VIBE_SRCS
+    vibe_test.cpp
+    ../src/bgsegm/vibe.cpp
+)
+
+# Set include directories
+set(VIBE_INC_DIRS
+    ../src/bgsegm
+    ${OpenCV_INCLUDE_DIRS}
+)
+
+# Build ViBe test
+add_executable(vibe_test ${VIBE_SRCS})
+
+# Link dependencies
+target_link_libraries(vibe_test PRIVATE ${TEST_LINK_LIBS})
+target_include_directories(vibe_test PRIVATE ${VIBE_INC_DIRS})
+
+
 
 # LAP Solver test
 set(LAP_SOLVER_TEST_SRCS
@@ -45,7 +65,6 @@ add_executable(lap_solver_test ${LAP_SOLVER_TEST_SRCS})
 # Link dependencies
 target_link_libraries(lap_solver_test PRIVATE ${TEST_LINK_LIBS})
 target_include_directories(lap_solver_test PRIVATE ${LAP_SOLVER_TEST_INC_DIRS})
-
 
 
 # SORT Tracker test
