@@ -17,10 +17,9 @@
 #include <opencv2/core.hpp>
 #include <opencv2/core/hal/intrin.hpp>
 #include <opencv2/core/operations.hpp>
-#include <sys/_types/_int8_t.h>
 
-ViBe::ViBe(int width,
-           int height,
+ViBe::ViBe(int height,
+           int width,
            uint8_t thresholdL1,
            uint32_t minNumCloseSamples,
            int updateFactor)
@@ -62,7 +61,7 @@ void ViBe::segment(const cv::Mat& frame, cv::Mat& fgMask) {
         });
 }
 
-void ViBe::update(const cv::Mat& frame, cv::Mat& updateMask) {
+void ViBe::update(const cv::Mat& frame, const cv::Mat& updateMask) {
     CV_Assert(!frame.empty());
     CV_Assert(!updateMask.empty());
     CV_Assert(frame.rows == _h && frame.cols == _w);
@@ -109,15 +108,15 @@ void ViBe::init(const cv::Mat& frame) {
         for (int r = range.start; r < range.end; r++) {
             int i = r / _w;
             int j = r % _w;
-            auto pixel = frame.at<cv::Vec3b>(i, j);
-            auto* pSamples = _samples.ptr<cv::Vec3b>(i, j);
+            const auto& pixel = frame.at<cv::Vec3b>(i, j);
+            auto* samples = _samples.ptr<cv::Vec3b>(i, j);
 
             for (int k = 0; k < NUM_SAMPLES; k++) {
-                pSamples[k][0] = cv::saturate_cast<uint8_t>(
+                samples[k][0] = cv::saturate_cast<uint8_t>(
                     pixel[0] + cv::theRNG().uniform(-12, 12));
-                pSamples[k][1] = cv::saturate_cast<uint8_t>(
+                samples[k][1] = cv::saturate_cast<uint8_t>(
                     pixel[1] + cv::theRNG().uniform(-12, 12));
-                pSamples[k][2] = cv::saturate_cast<uint8_t>(
+                samples[k][2] = cv::saturate_cast<uint8_t>(
                     pixel[2] + cv::theRNG().uniform(-12, 12));
             }
         }

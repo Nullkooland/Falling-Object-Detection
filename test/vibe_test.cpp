@@ -18,7 +18,7 @@ int main(int argc, char* argv[]) {
     int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
     int frameCount = 0;
 
-    auto vibe = std::make_unique<ViBe>(width, height, 25, 3, 8);
+    auto vibe = std::make_unique<ViBe>(height, width, 25, 3, 8);
 
     auto frame = cv::Mat(height, width, CV_8UC3);
     auto fgMask = cv::Mat(height, width, CV_8UC1);
