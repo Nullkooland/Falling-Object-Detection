@@ -44,18 +44,18 @@ void ViBe::segment(const cv::Mat& frame, cv::Mat& fgMask) {
         init(frame);
     }
 
-    fgMask.setTo(BACKGROUND_LABEL);
-
     cv::parallel_for_(
         {0, _h * _w}, [this, &frame, &fgMask](const cv::Range& range) {
             for (int r = range.start; r < range.end; r++) {
-                int i = r / _w;
-                int j = r % _w;
-                const auto* pixel = frame.ptr<uint8_t>(i, j);
-                auto* samples = _samples.ptr<uint8_t>(i, j);
+                const uint8_t* pixel = frame.data + r * 3;
+                uint8_t* samples = _samples.data + r * NUM_SAMPLES * 3;
+                uint8_t* mask = fgMask.data + r;
+
                 if (countCloseSamples(pixel, samples, _thresholdL1) <
                     _minNumCloseSamples) {
-                    fgMask.at<uint8_t>(i, j) = FOREGROUND_LABEL;
+                    *mask = FOREGROUND_LABEL;
+                } else {
+                    *mask = BACKGROUND_LABEL;
                 }
             }
         });
@@ -74,14 +74,15 @@ void ViBe::update(const cv::Mat& frame, const cv::Mat& updateMask) {
     cv::parallel_for_(
         {0, _h * _w}, [this, &frame, &updateMask](const cv::Range& range) {
             for (int r = range.start; r < range.end; r++) {
-                int i = r / _w;
-                int j = r % _w;
-                const auto* randomIndex = _randomTable.ptr<int8_t>(i, j);
+                const uint8_t* randomIndex = _randomTable.data + r * 3;
+                const uint8_t* mask = updateMask.data + r;
 
-                if (updateMask.at<uint8_t>(i, j) != BACKGROUND_LABEL ||
-                    randomIndex[0] != 0) {
+                if (*mask != BACKGROUND_LABEL || randomIndex[0] != 0) {
                     continue;
                 }
+
+                int i = r / _w;
+                int j = r % _w;
 
                 const auto& pixel = frame.at<cv::Vec3b>(i, j);
                 auto* samples = _samples.ptr<cv::Vec3b>(i, j);
@@ -106,17 +107,15 @@ void ViBe::init(const cv::Mat& frame) {
     // Fill in samples matrix
     cv::parallel_for_({0, _h * _w}, [this, &frame](const cv::Range& range) {
         for (int r = range.start; r < range.end; r++) {
-            int i = r / _w;
-            int j = r % _w;
-            const auto& pixel = frame.at<cv::Vec3b>(i, j);
-            auto* samples = _samples.ptr<cv::Vec3b>(i, j);
+            const uint8_t* pixel = frame.data + r * 3;
+            uint8_t* samples = _samples.data + r * NUM_SAMPLES * 3;
 
-            for (int k = 0; k < NUM_SAMPLES; k++) {
-                samples[k][0] = cv::saturate_cast<uint8_t>(
+            for (int k = 0; k < NUM_SAMPLES * 3; k += 3) {
+                samples[k] = cv::saturate_cast<uint8_t>(
                     pixel[0] + cv::theRNG().uniform(-12, 12));
-                samples[k][1] = cv::saturate_cast<uint8_t>(
+                samples[k + 1] = cv::saturate_cast<uint8_t>(
                     pixel[1] + cv::theRNG().uniform(-12, 12));
-                samples[k][2] = cv::saturate_cast<uint8_t>(
+                samples[k + 2] = cv::saturate_cast<uint8_t>(
                     pixel[2] + cv::theRNG().uniform(-12, 12));
             }
         }

@@ -522,8 +522,7 @@ int main(int argc, char* argv[]) {
 
             vibe->segmentation(frame.data, fgMask.data);
 
-            fgMask.copyTo(updateMask);
-            // cv::morphologyEx(updateMask, updateMask, cv::MORPH_CLOSE, se33);
+            cv::morphologyEx(fgMask, updateMask, cv::MORPH_OPEN, se3x3);
 
             // Update ViBe
             vibe->update(frame.data, updateMask.data);
