@@ -25,7 +25,6 @@ class ViBeSequential : cv::Algorithm {
      * @param height Frame height
      * @param width Frame width
      * @param numSamples Number of samples in the background model
-     * @param numHistoryImages Number of history images in the background model
      * @param thresholdL1 L1 norm threshold to determine whether a pixel in
      * frame is close to a sample in the background model
      * @param minNumCloseSamples Minimum number of close samples to determine
@@ -38,7 +37,6 @@ class ViBeSequential : cv::Algorithm {
     ViBeSequential(int height,
                    int width,
                    int numSamples = 16,
-                   int numHistoryImages = 2,
                    uint8_t thresholdL1 = 20,
                    int minNumCloseSamples = 2,
                    int updateFactor = 6);
@@ -60,14 +58,12 @@ class ViBeSequential : cv::Algorithm {
      */
     ViBeSequential(const cv::Size& size,
                    int numSamples = 16,
-                   int numHistoryImages = 2,
                    uint8_t thresholdL1 = 20,
                    int minNumCloseSamples = 2,
                    int updateFactor = 6)
         : ViBeSequential(size.height,
                          size.width,
                          numSamples,
-                         numHistoryImages,
                          thresholdL1,
                          minNumCloseSamples,
                          updateFactor) {}
@@ -112,6 +108,7 @@ class ViBeSequential : cv::Algorithm {
 #pragma endregion
   private:
 #pragma region Private constants
+
     /**
      * @brief Label value indicating a background pixel in the output mask
      */
@@ -133,17 +130,17 @@ class ViBeSequential : cv::Algorithm {
     int _w;
     int _numPixelsPerFrame;
     int _numSamples;
-    int _numHistoryImages;
     uint8_t _thresholdL1;
     int _minNumCloseSamples;
     int _updateFactor;
     bool _isInitalized;
 
     /* Buffers */
-    uint8_t* _samples;
+    uint8_t* _historySamples;
 
-    int _lastSwappedImageIndex;
-    uint8_t* _historyImages;
+    bool _swapHistoryImageFlag;
+    uint8_t* _historyImage0;
+    uint8_t* _historyImage1;
 
     std::vector<int> _jump;
     std::vector<int> _neighborIndex;
@@ -168,10 +165,13 @@ class ViBeSequential : cv::Algorithm {
 
 #pragma region Static helper methods
 
-    static uint8_t distanceL1(uint8_t testPixelC0,
+    static uint8_t distanceL1(const uint8_t* samplePixel,
+                              uint8_t testPixelC0,
                               uint8_t testPixelC1,
-                              uint8_t testPixelC2,
-                              const uint8_t* samplePixel);
+                              uint8_t testPixelC2);
+
+    static void
+    copyPixel(uint8_t* dst, uint8_t srcC0, uint8_t srcC1, uint8_t srcC2);
 
     static void swapPixel(uint8_t* pixelA, uint8_t* pixelB);
 
