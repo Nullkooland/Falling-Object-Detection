@@ -146,11 +146,11 @@ uint32_t ViBe::countCloseSamples(const uint8_t* testPixel,
     cv::v_uint8x16 vAbsDiffC2 = cv::v_absdiff(vPixelC2, vSamplesC2);
 
     // Sum across channels to get L1 norm vector
-    cv::v_uint8x16 vL1Norm = vAbsDiffC0 + vAbsDiffC1 + vAbsDiffC2;
+    cv::v_uint8x16 vNormL1 = vAbsDiffC0 + vAbsDiffC1 + vAbsDiffC2;
     // Duplicate threshold to vector
     cv::v_uint8x16 vThreshold = cv::v_setall_u8(threshold);
     // Count number of sample pixels that close to test pixel
-    uint32_t numSamplesInRange = cv::v_reduce_sum(vL1Norm < vThreshold);
+    uint32_t numSamplesInRange = cv::v_reduce_sum(vNormL1 < vThreshold);
 
     return numSamplesInRange;
 }

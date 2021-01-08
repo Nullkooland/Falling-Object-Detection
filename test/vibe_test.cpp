@@ -1,24 +1,30 @@
-#include "vibe.hpp"
+#include "vibe_sequential.hpp"
+// #include "vibe.hpp"
 
 #include <array>
 #include <cstdio>
 #include <iostream>
 #include <memory>
 #include <opencv2/core.hpp>
+#include <opencv2/core/utility.hpp>
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgproc.hpp>
 #include <opencv2/videoio.hpp>
+
 
 constexpr auto VIDEO_PATH = "data/apartment.264";
 // constexpr auto VIDEO_PATH = "data/office_building_floor_15.avi";
 
 int main(int argc, char* argv[]) {
+    cv::setNumThreads(8);
+    
     auto cap = cv::VideoCapture(VIDEO_PATH);
     int width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
     int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
     int frameCount = 0;
 
-    auto vibe = std::make_unique<ViBe>(height, width, 25, 3, 8);
+    auto vibe = std::make_unique<ViBeSequential>(height, width, 16, 2, 25, 3, 8);
+    // auto vibe = std::make_unique<ViBe>(height, width, 25, 3, 8);
 
     auto frame = cv::Mat(height, width, CV_8UC3);
     auto fgMask = cv::Mat(height, width, CV_8UC1);
@@ -38,6 +44,11 @@ int main(int argc, char* argv[]) {
     cv::namedWindow("fgmask");
 
     while (cap.read(frame)) {
+        frameCount++;
+        if (frameCount < 16) {
+            continue;
+        }
+        
         tickBegin = cv::getTickCount();
 
         vibe->segment(frame, fgMask);
@@ -78,7 +89,6 @@ int main(int argc, char* argv[]) {
             break;
         }
 
-        frameCount++;
         if (frameCount % 30 == 0) {
             std::printf("[FRAME #%-4d] %s\n", frameCount, str.data());
         }

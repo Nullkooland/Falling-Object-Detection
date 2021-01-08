@@ -30,6 +30,7 @@ target_include_directories(kalman_filter_test PRIVATE ${KALMAN_TEST_INC_DIRS})
 set(VIBE_SRCS
     vibe_test.cpp
     ../src/bgsegm/vibe.cpp
+    ../src/bgsegm/vibe_sequential.cpp
 )
 
 # Set include directories
