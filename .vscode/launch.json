@@ -27,7 +27,9 @@
                 // "data/office_building_floor_15.avi",
                 "--resize",
                 "720",
-                "--rotate"
+                "--rotate",
+                "--max_blob_count",
+                "64"
             ],
             "cwd": "${workspaceFolder}"
         },

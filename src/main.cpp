@@ -10,10 +10,10 @@
  */
 // #include "ViBeBase.h"
 #include "decoder.hpp"
-#include "vibe_sequential.hpp"
 #include "tracker.hpp"
 #include "trajectory.hpp"
 #include "utils.hpp"
+#include "vibe_sequential.hpp"
 
 #include <argparse/argparse.hpp>
 #include <array>
@@ -55,7 +55,6 @@ extern "C" {
 #include <libavutil/hwcontext_drm.h>
 #endif
 }
-
 
 static constexpr size_t MIN_BUFFER_SIZE = 1024 * 64;
 
@@ -129,6 +128,11 @@ static argparse::ArgumentParser getArgParser() {
         .help("Output directory")
         .default_value(std::string("data"));
 
+    parser.add_argument("--max_blob_count")
+        .help("Max number of detected foreground blobs in a valid frame")
+        .default_value(64)
+        .action([](const std::string& arg) { return std::stoi(arg); });
+
     // clang-format on
 
     return parser;
@@ -161,6 +165,8 @@ int main(int argc, char* argv[]) {
     auto file = parser.get("--file");
 
     auto outputDir = parser.get("--output");
+
+    int maxNumBlobs = parser.get<int>("--max_blob_count");
 
     // Open local media file
     if (isLocalFile) {
@@ -378,7 +384,7 @@ int main(int argc, char* argv[]) {
     cv::Mat fgBlobStats(64, 5, CV_32S);
 
     // Prepare structure elements for morphological filtering
-    cv::Mat se3x3 = cv::getStructuringElement(cv::MORPH_CROSS, {3, 3});
+    cv::Mat se3x3 = cv::getStructuringElement(cv::MORPH_ELLIPSE, {3, 3});
     cv::Mat se5x5 = cv::getStructuringElement(cv::MORPH_ELLIPSE, {5, 5});
     cv::Mat se7x7 = cv::getStructuringElement(cv::MORPH_ELLIPSE, {7, 7});
 
@@ -522,6 +528,7 @@ int main(int argc, char* argv[]) {
             // Update ViBe
             vibe->update(frame, updateMask);
 
+            // Post-processing on foreground mask
             cv::morphologyEx(fgMask, fgMask, cv::MORPH_OPEN, se3x3);
             cv::morphologyEx(fgMask, fgMask, cv::MORPH_CLOSE, se5x5);
 
@@ -529,20 +536,22 @@ int main(int argc, char* argv[]) {
 
             double vibeProcessTimeMs = getTimespanMs(tickBegin, tickEnd);
 
-            /* Post-processing: 3x3 median filter. */
-            // cv::medianBlur(segmentationMap, segmentationMap, 3);
-            // cv::morphologyEx(fgMask, fgMask, cv::MORPH_OPEN, kernel);
-            // cv::morphologyEx(segmentationMap, segmentationMap,
-            // cv::MORPH_CLOSE, kernel);
-
             // Find all connected components
             int numFgBlobs = cv::connectedComponentsWithStats(
                 fgMask, fgBlobLabels, fgBlobStats, fgBlobCentroids);
 
-            // if (numFgBlobs > 64) {
-            //     tracker->clear();
-            //     continue;
-            // }
+            if (numFgBlobs > maxNumBlobs) {
+                // Too many blobs, consider this frame invalid
+
+#if !defined(ROCKCHIP_PLATFORM)
+                cv::imshow("frame", frame);
+                cv::imshow("fgmask", fgMask);
+                cv::imshow("update mask", updateMask);
+#endif
+
+                tracker->clear();
+                continue;
+            }
 
             detections.clear();
             for (int i = 1; i < numFgBlobs; i++) {
