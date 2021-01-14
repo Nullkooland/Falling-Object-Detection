@@ -137,6 +137,11 @@ cv::Matx<float, 4, 1> TrackedBBox::rectToMeasurement(const cv::Rect2f& rect) {
 }
 
 cv::Rect2f TrackedBBox::measurementToRect(const KF::Measurement& measurement) {
+    // Area or aspect ratio is negative, return an empty bbox
+    if (measurement(2) < 0.0F || measurement(3) < 0.0F) {
+        return {0.0F, 0.0F, 0.0F, 0.0F};
+    }
+    
     float width = std::sqrt(measurement(2) * measurement(3));
     float height = measurement(2) / width;
     float x = measurement(0) - width * 0.5F;
