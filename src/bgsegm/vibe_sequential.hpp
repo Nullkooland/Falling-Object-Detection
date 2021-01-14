@@ -2,8 +2,8 @@
  * @file vibe_sequential.cpp
  * @author Xiaoran Weng (goose_bomb@outlook.com)
  * @brief Implementation of ViBe++ background subtraction algorithm
- * @version 0.1
- * @date 2021-01-6
+ * @version 0.2
+ * @date 2021-01-14
  *
  * @copyright Copyright (c) 2020
  *
@@ -15,12 +15,15 @@
 #include <opencv2/core.hpp>
 #include <vector>
 
+/**
+ * @brief ViBe background substractor running sequentially
+ */
 class ViBeSequential : cv::Algorithm {
   public:
 #pragma region Public member methods
 
     /**
-     * @brief Construct a new ViBe algorithm instance
+     * @brief Construct a new sequential ViBe algorithm instance
      *
      * @param height Frame height
      * @param width Frame width
@@ -37,12 +40,12 @@ class ViBeSequential : cv::Algorithm {
     ViBeSequential(int height,
                    int width,
                    int numSamples = 16,
-                   uint8_t thresholdL1 = 20,
+                   uint32_t thresholdL1 = 20,
                    int minNumCloseSamples = 2,
                    int updateFactor = 6);
 
     /**
-     * @brief Construct a new ViBe algorithm instance
+     * @brief Construct a new sequential ViBe algorithm instance
      *
      * @param size Frame size
      * @param numSamples Number of samples in the background model
@@ -58,7 +61,7 @@ class ViBeSequential : cv::Algorithm {
      */
     ViBeSequential(const cv::Size& size,
                    int numSamples = 16,
-                   uint8_t thresholdL1 = 20,
+                   uint32_t thresholdL1 = 20,
                    int minNumCloseSamples = 2,
                    int updateFactor = 6)
         : ViBeSequential(size.height,
@@ -130,17 +133,15 @@ class ViBeSequential : cv::Algorithm {
     int _w;
     int _numPixelsPerFrame;
     int _numSamples;
-    uint8_t _thresholdL1;
+    uint32_t _thresholdL1;
     int _minNumCloseSamples;
     int _updateFactor;
-    bool _isInitalized;
 
-    /* Buffers */
+    /* Background model */
     uint8_t* _historySamples;
-
-    bool _swapHistoryImageFlag;
     uint8_t* _historyImage0;
     uint8_t* _historyImage1;
+    bool _swapHistoryImageFlag;
 
     std::vector<int> _jump;
     std::vector<int> _neighborIndex;
@@ -149,14 +150,17 @@ class ViBeSequential : cv::Algorithm {
     /* Random generator */
     cv::RNG_MT19937 _rng;
 
+    /* Init flag */
+    bool _isInitalized;
+
 #pragma endregion
 
 #pragma region Private member methods
 
     /**
-     * @brief Initialize the ViBe bg substractor
+     * @brief Initialize the ViBe bg substractor with first frame
      *
-     * @param frame Initial frame
+     * @param frame First frame
      * @return
      */
     void init(const cv::Mat& frame);
@@ -165,14 +169,34 @@ class ViBeSequential : cv::Algorithm {
 
 #pragma region Static helper methods
 
-    static uint8_t distanceL1(const uint8_t* samplePixel,
-                              uint8_t testPixelC0,
-                              uint8_t testPixelC1,
-                              uint8_t testPixelC2);
+    /**
+     * @brief Tells if two 3-channel pixels are close in terms of L1-norm
+     *
+     * @param pixelA Pointer to pixel A
+     * @param pixelB Pointer to pixel B
+     * @param thresholdL1 L1 norm threshold
+     * @return  True: the two pixels are close
+     *          False: the two pixels are not close
+     */
+    static bool
+    isClose(const uint8_t* pixelA, const uint8_t* pixelB, uint32_t thresholdL1);
 
-    static void
-    copyPixel(uint8_t* dst, uint8_t srcC0, uint8_t srcC1, uint8_t srcC2);
+    /**
+     * @brief Copy a 3-channel pixel from src to dst
+     *
+     * @param dst Pointer to source pixel
+     * @param src Pointer to destination pixel
+     * @return
+     */
+    static void copyPixel(uint8_t* dst, const uint8_t* src);
 
+    /**
+     * @brief Swap two 3-channel pixels
+     *
+     * @param pixelA Pointer to pixel A
+     * @param pixelB Pointer to pixel B
+     * @return
+     */
     static void swapPixel(uint8_t* pixelA, uint8_t* pixelB);
 
 #pragma endregion

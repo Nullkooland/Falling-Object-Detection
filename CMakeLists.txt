@@ -13,21 +13,18 @@ find_package(OpenCV REQUIRED)
 find_package(argparse REQUIRED)
 include(${CMAKE_HOME_DIRECTORY}/cmake/findFFmpeg.cmake)
 
-# Add ViBe source directory
-add_subdirectory(3rdparty/vibe++)
-
 # Set link libraries
 set(PROJ_LINK_LIBS
     argparse::argparse
     ${FFMPEG_LIBRARIES}
     ${OpenCV_LIBS}
-    vibe++
 )
 
 # Set include directories
 set(PROJ_INC_DIRS
     src
     src/codec
+    src/bgsegm
     src/kalman_filter
     src/tracker
     ${FFMPEG_INCLUDE_DIRS}
@@ -55,6 +52,7 @@ set(PROJ_SRCS
     src/main.cpp
     src/utils.cpp
     src/codec/decoder.cpp
+    src/bgsegm/vibe_sequential.cpp
     src/tracker/kalman_filter.cpp
     src/tracker/tracker.cpp
     src/tracker/tracked_bbox.cpp

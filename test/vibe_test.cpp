@@ -1,5 +1,5 @@
+#include "vibe.hpp"
 #include "vibe_sequential.hpp"
-// #include "vibe.hpp"
 
 #include <array>
 #include <cstdio>
@@ -17,13 +17,12 @@ constexpr auto VIDEO_PATH = "data/apartment.264";
 int main(int argc, char* argv[]) {
     cv::setNumThreads(8);
 
-    auto cap = cv::VideoCapture(1);
+    auto cap = cv::VideoCapture(VIDEO_PATH);
     int width = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_WIDTH));
     int height = static_cast<int>(cap.get(cv::CAP_PROP_FRAME_HEIGHT));
     int frameCount = 0;
 
-    auto vibe =
-        std::make_unique<ViBeSequential>(height, width, 14, 20, 2, 6);
+    auto vibe = std::make_unique<ViBeSequential>(height, width, 14, 20, 2, 5);
     // auto vibe = std::make_unique<ViBe>(height, width, 25, 3, 8);
 
     auto frame = cv::Mat(height, width, CV_8UC3);

@@ -2,8 +2,8 @@
  * @file vibe_sequential.cpp
  * @author Xiaoran Weng (goose_bomb@outlook.com)
  * @brief Implementation of ViBe++ background subtraction algorithm
- * @version 0.1
- * @date 2021-01-6
+ * @version 0.2
+ * @date 2021-01-14
  *
  * @copyright Copyright (c) 2020
  *
@@ -14,27 +14,29 @@
 #include <array>
 #include <opencv2/core.hpp>
 
-ViBeSequential::ViBeSequential(int _h,
-                               int _w,
+ViBeSequential::ViBeSequential(int height,
+                               int width,
                                int numSamples,
-                               uint8_t thresholdL1,
+                               uint32_t thresholdL1,
                                int minNumCloseSamples,
                                int updateFactor)
-    : _h(_h),
-      _w(_w),
-      _numPixelsPerFrame(_h * _w),
+    : _h(height),
+      _w(width),
+      _numPixelsPerFrame(height * width),
       _numSamples(numSamples),
-      _thresholdL1(thresholdL1),
+      _thresholdL1(thresholdL1 * 3),
       _minNumCloseSamples(minNumCloseSamples),
-      _updateFactor(updateFactor) {
+      _updateFactor(updateFactor),
+      _swapHistoryImageFlag(false),
+      _isInitalized(false) {
 
     // Allocate buffers
-    _historyImage0 = static_cast<uint8_t*>(cv::fastMalloc(_h * _w * 3));
-    _historyImage1 = static_cast<uint8_t*>(cv::fastMalloc(_h * _w * 3));
+    _historyImage0 = static_cast<uint8_t*>(cv::fastMalloc(height * width * 3));
+    _historyImage1 = static_cast<uint8_t*>(cv::fastMalloc(height * width * 3));
     _historySamples =
-        static_cast<uint8_t*>(cv::fastMalloc(_h * _w * numSamples * 3));
+        static_cast<uint8_t*>(cv::fastMalloc(height * width * numSamples * 3));
 
-    int size = (_w > _h) ? 2 * _w + 1 : 2 * _h + 1;
+    int size = (width > height) ? 2 * width + 1 : 2 * height + 1;
     _jump.resize(size);
     _neighborIndex.resize(size);
     _replaceIndex.resize(size);
@@ -67,59 +69,44 @@ void ViBeSequential::segment(const cv::Mat& frame, cv::Mat& fgMask) {
     uint8_t* swappingHistoryImage =
         _swapHistoryImageFlag ? _historyImage1 : _historyImage0;
 
-    /* Compare with first history image */
+    // Compare with first history image
     for (int i = 0; i < numPixels; i++) {
-        uint8_t pixelC0 = frame.data[i * 3 + 0];
-        uint8_t pixelC1 = frame.data[i * 3 + 1];
-        uint8_t pixelC2 = frame.data[i * 3 + 2];
-        if (distanceL1(_historyImage0 + i * 3, pixelC0, pixelC1, pixelC2) >=
-            _thresholdL1) {
+        if (!isClose(
+                _historyImage0 + i * 3, frame.data + i * 3, _thresholdL1)) {
             fgMask.data[i] = _minNumCloseSamples;
         }
     }
 
-    /* Compare with second history image */
+    // Compare with second history image
     for (int i = 0; i < numPixels; i++) {
-        uint8_t pixelC0 = frame.data[i * 3 + 0];
-        uint8_t pixelC1 = frame.data[i * 3 + 1];
-        uint8_t pixelC2 = frame.data[i * 3 + 2];
-        if (distanceL1(_historyImage1 + i * 3, pixelC0, pixelC1, pixelC2) <
-            _thresholdL1) {
+        if (isClose(_historyImage1 + i * 3, frame.data + i * 3, _thresholdL1)) {
             fgMask.data[i]--;
         }
     }
 
+    // Compare with history samples
     for (int i = 0; i < numPixels; i++) {
-        if (fgMask.data[i] > 0) {
-            /* We need to check the full border and swap values with the first
-             * or second historyImage. We still need to find a match before we
-             * can stop our search.
-             */
-            uint8_t* historySample = _historySamples + i * _numSamples * 3;
-            uint8_t pixelC0 = frame.data[i * 3 + 0];
-            uint8_t pixelC1 = frame.data[i * 3 + 1];
-            uint8_t pixelC2 = frame.data[i * 3 + 2];
+        // This pixel is already labelled as background, move to next one
+        if (fgMask.data[i] < 0) {
+            continue;
+        }
 
-            for (int k = 0; k < _numSamples; k++) {
-                if (distanceL1(
-                        historySample + k * 3, pixelC0, pixelC1, pixelC2) <
-                    _thresholdL1) {
-                    fgMask.data[i]--;
+        uint8_t* historySample = _historySamples + i * _numSamples * 3;
+        std::array<uint8_t, 3> currentPixel;
+        copyPixel(currentPixel.data(), frame.data + i * 3);
 
-                    /* Swaping: Putting found value in history image buffer. */
-                    swapPixel(swappingHistoryImage + i * 3,
-                              historySample + k * 3);
+        for (int k = 0; k < _numSamples && fgMask.data[i] > 0; k++) {
+            if (isClose(
+                    historySample + k * 3, currentPixel.data(), _thresholdL1)) {
+                fgMask.data[i]--;
 
-                    /* Exit inner loop. */
-                    if (fgMask.data[i] <= 0) {
-                        break;
-                    }
-                }
+                // Put the close sample pixel into history image buffer
+                swapPixel(swappingHistoryImage + i * 3, historySample + k * 3);
             }
         }
     }
 
-    /* Produces the output. Note that this step is application-dependent. */
+    // Assgin foreground label for "survivors"
     for (int i = 0; i < numPixels; i++) {
         if (fgMask.data[i] > 0) {
             fgMask.data[i] = FOREGROUND_LABEL;
@@ -135,7 +122,6 @@ void ViBeSequential::update(const cv::Mat& frame, const cv::Mat& updateMask) {
     CV_Assert(frame.isContinuous());
     CV_Assert(updateMask.isContinuous());
 
-    /* All the frame, except the border. */
     int shift;
     int indX;
     int indY;
@@ -143,45 +129,38 @@ void ViBeSequential::update(const cv::Mat& frame, const cv::Mat& updateMask) {
     int x;
     int k;
 
+    // Update background model
+    // All but border
     for (y = 1; y < _h - 1; ++y) {
         shift = _rng.uniform(0, _w);
-        indX = _jump[shift]; // index_jump should never be zero (> 1).
+        indX = _jump[shift];
         k = _replaceIndex[shift];
         int neighborIndex = _neighborIndex[shift];
 
         while (indX < _w - 1) {
             int i = indX + y * _w;
-            uint8_t pixelC0 = frame.data[i * 3 + 0];
-            uint8_t pixelC1 = frame.data[i * 3 + 1];
-            uint8_t pixelC2 = frame.data[i * 3 + 2];
+            std::array<uint8_t, 3> currentPixel;
+            copyPixel(currentPixel.data(), frame.data + i * 3);
 
             if (updateMask.data[i] == BACKGROUND_LABEL) {
-                /* In-place substitution. */
-
                 if (k < 2) {
                     uint8_t* historyImage =
                         (k == 0) ? _historyImage0 : _historyImage1;
 
-                    copyPixel(historyImage + i * 3, pixelC0, pixelC1, pixelC2);
+                    copyPixel(historyImage + i * 3, currentPixel.data());
                     copyPixel(historyImage + (i + neighborIndex) * 3,
-                              pixelC0,
-                              pixelC1,
-                              pixelC2);
+                              currentPixel.data());
                 } else {
                     int kSample = k - 2;
 
                     copyPixel(_historySamples +
                                   (i * _numSamples * 3 + kSample * 3),
-                              pixelC0,
-                              pixelC1,
-                              pixelC2);
+                              currentPixel.data());
 
                     copyPixel(_historySamples +
                                   ((i + neighborIndex) * _numSamples * 3 +
                                    kSample * 3),
-                              pixelC0,
-                              pixelC1,
-                              pixelC2);
+                              currentPixel.data());
                 }
             }
 
@@ -192,30 +171,24 @@ void ViBeSequential::update(const cv::Mat& frame, const cv::Mat& updateMask) {
 
     auto replaceSample =
         [this](const cv::Mat& frame, const cv::Mat& updateMask, int i, int k) {
-            uint8_t pixelC0 = frame.data[i * 3 + 0];
-            uint8_t pixelC1 = frame.data[i * 3 + 1];
-            uint8_t pixelC2 = frame.data[i * 3 + 2];
-
             if (updateMask.data[i] == BACKGROUND_LABEL) {
                 if (k < 2) {
                     uint8_t* historyImage =
                         (k == 0) ? _historyImage0 : _historyImage1;
-                    copyPixel(historyImage + i * 3, pixelC0, pixelC1, pixelC2);
+                    copyPixel(historyImage + i * 3, frame.data + i * 3);
                 } else {
                     int kSample = k - 2;
                     copyPixel(_historySamples +
                                   (i * _numSamples * 3 + kSample * 3),
-                              pixelC0,
-                              pixelC1,
-                              pixelC2);
+                              frame.data + i * 3);
                 }
             }
         };
 
-    /* First row. */
+    // First row
     y = 0;
     shift = _rng.uniform(0, _w);
-    indX = _jump[shift]; // index_jump should never be zero (> 1).
+    indX = _jump[shift];
     k = _replaceIndex[shift];
 
     while (indX <= _w - 1) {
@@ -227,10 +200,10 @@ void ViBeSequential::update(const cv::Mat& frame, const cv::Mat& updateMask) {
         indX += _jump[shift];
     }
 
-    /* Last row. */
+    // Last row
     y = _h - 1;
     shift = _rng.uniform(0, _w);
-    indX = _jump[shift]; // index_jump should never be zero (> 1).
+    indX = _jump[shift];
     k = _replaceIndex[shift];
 
     while (indX <= _w - 1) {
@@ -242,10 +215,10 @@ void ViBeSequential::update(const cv::Mat& frame, const cv::Mat& updateMask) {
         indX += _jump[shift];
     }
 
-    /* First column. */
+    // First column
     x = 0;
     shift = _rng.uniform(0, _h);
-    indY = _jump[shift]; // index_jump should never be zero (> 1).
+    indY = _jump[shift];
     k = _replaceIndex[shift];
 
     while (indY <= _h - 1) {
@@ -257,10 +230,10 @@ void ViBeSequential::update(const cv::Mat& frame, const cv::Mat& updateMask) {
         indY += _jump[shift];
     }
 
-    /* Last column. */
+    // Last column
     x = _w - 1;
     shift = _rng.uniform(0, _h);
-    indY = _jump[shift]; // index_jump should never be zero (> 1).
+    indY = _jump[shift];
     k = _replaceIndex[shift];
 
     while (indY <= _h - 1) {
@@ -293,7 +266,7 @@ void ViBeSequential::init(const cv::Mat& frame) {
         }
     }
 
-    // Fill random i tables
+    // Fill random indices tables
     for (int i = 0; i < _replaceIndex.size(); i++) {
         _jump[i] = _rng.uniform(1, _updateFactor * 2 + 1);
         _replaceIndex[i] = _rng.uniform(0, _numSamples);
@@ -303,24 +276,20 @@ void ViBeSequential::init(const cv::Mat& frame) {
     _isInitalized = true;
 }
 
-uint8_t ViBeSequential::distanceL1(const uint8_t* samplePixel,
-                                   uint8_t testPixelC0,
-                                   uint8_t testPixelC1,
-                                   uint8_t testPixelC2) {
-    // clang-format off
-    return std::abs(testPixelC0 - samplePixel[0]) +
-           std::abs(testPixelC1 - samplePixel[1]) +
-           std::abs(testPixelC2 - samplePixel[2]);
-    // clang-format on
+bool ViBeSequential::isClose(const uint8_t* pixelA,
+                             const uint8_t* pixelB,
+                             uint32_t thresholdL1) {
+
+    uint32_t normL1 = static_cast<uint32_t>(std::abs(pixelA[0] - pixelB[0])) +
+                      static_cast<uint32_t>(std::abs(pixelA[1] - pixelB[1])) +
+                      static_cast<uint32_t>(std::abs(pixelA[2] - pixelB[2]));
+    return normL1 <= thresholdL1;
 }
 
-void ViBeSequential::copyPixel(uint8_t* dst,
-                               uint8_t srcC0,
-                               uint8_t srcC1,
-                               uint8_t srcC2) {
-    dst[0] = srcC0;
-    dst[1] = srcC1;
-    dst[2] = srcC2;
+void ViBeSequential::copyPixel(uint8_t* dst, const uint8_t* src) {
+    dst[0] = src[0];
+    dst[1] = src[1];
+    dst[2] = src[2];
 }
 
 void ViBeSequential::swapPixel(uint8_t* pixelA, uint8_t* pixelB) {

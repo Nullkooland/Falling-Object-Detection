@@ -2,13 +2,15 @@
  * @file main.cpp
  * @author Xiaoran Weng (goose_bomb@outlook.com)
  * @brief Program entry
- * @version 0.2
- * @date 2020-12-28
+ * @version 0.3
+ * @date 2021-01-14
  *
  * @copyright Copyright (c) 2020
  *
  */
+// #include "ViBeBase.h"
 #include "decoder.hpp"
+#include "vibe_sequential.hpp"
 #include "tracker.hpp"
 #include "trajectory.hpp"
 #include "utils.hpp"
@@ -54,9 +56,6 @@ extern "C" {
 #endif
 }
 
-#include "Manhattan.h"
-#include "ViBe.h"
-using ViBe = vibe::ViBeSequential<3, vibe::Manhattan<3>>;
 
 static constexpr size_t MIN_BUFFER_SIZE = 1024 * 64;
 
@@ -337,7 +336,7 @@ int main(int argc, char* argv[]) {
 #endif
 
     // Create vibe algorithm instance
-    std::unique_ptr<ViBe> vibe;
+    auto vibe = std::make_unique<ViBeSequential>(height, width, 14, 20, 2, 5);
     // Create tracker instance
     auto tracker = std::make_unique<SortTracker>(3, 3);
 
@@ -513,19 +512,15 @@ int main(int argc, char* argv[]) {
             tickEnd = cv::getTickCount();
             double decodeTimeMs = getTimespanMs(tickBegin, tickEnd);
 
-            if (vibe == nullptr) {
-                vibe = std::make_unique<ViBe>(height, width, frame.data);
-            }
-
             /* Segmentation and update. */
             tickBegin = cv::getTickCount();
 
-            vibe->segmentation(frame.data, fgMask.data);
+            vibe->segment(frame, fgMask);
 
             cv::morphologyEx(fgMask, updateMask, cv::MORPH_OPEN, se3x3);
 
             // Update ViBe
-            vibe->update(frame.data, updateMask.data);
+            vibe->update(frame, updateMask);
 
             cv::morphologyEx(fgMask, fgMask, cv::MORPH_OPEN, se3x3);
             cv::morphologyEx(fgMask, fgMask, cv::MORPH_CLOSE, se5x5);
@@ -544,10 +539,10 @@ int main(int argc, char* argv[]) {
             int numFgBlobs = cv::connectedComponentsWithStats(
                 fgMask, fgBlobLabels, fgBlobStats, fgBlobCentroids);
 
-            if (numFgBlobs > 16) {
-                tracker->clear();
-                continue;
-            }
+            // if (numFgBlobs > 64) {
+            //     tracker->clear();
+            //     continue;
+            // }
 
             detections.clear();
             for (int i = 1; i < numFgBlobs; i++) {
