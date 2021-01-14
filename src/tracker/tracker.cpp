@@ -37,6 +37,7 @@ SortTracker::SortTracker(int maxBBoxAge,
       _minTrajectoryNumSamples(minTrajectoryNumSamples),
       _minTrajectoryFallingDistance(minTrajectoryFallingDistance),
       _iouThreshold(iouThreshold),
+      _tagCount(0),
       _frameCount(0) {}
 
 void SortTracker::update(const std::vector<cv::Rect2f>& detections,
@@ -53,7 +54,7 @@ void SortTracker::updateTracks(const std::vector<cv::Rect2f>& detections) {
     // No tracked bbox available, make all detected bboxes as tracked
     if (_tracks.empty()) {
         for (const auto& bbox : detections) {
-            int tag = getUnusedTag(_tracks);
+            int tag = getUnusedTag();
             _tracks.emplace(tag, TrackedBBox(bbox));
         }
         return;
@@ -114,7 +115,7 @@ void SortTracker::updateTracks(const std::vector<cv::Rect2f>& detections) {
     // Add unmatched detections to tracks
     for (int j = 0; j < _matchesReversed.size(); j++) {
         if (_matchesReversed[j] == -1) {
-            int tag = getUnusedTag(_tracks);
+            int tag = getUnusedTag();
             _tracks.emplace(tag, TrackedBBox(detections[j]));
         }
     }
@@ -199,6 +200,8 @@ bool SortTracker::isFallingObjectTrajectory(
     return true;
 }
 
+int SortTracker::getUnusedTag() { return _tagCount++; }
+
 cv::Mat SortTracker::getIoU(const std::vector<Prediction>& predictions,
                             const std::vector<cv::Rect2f>& detections) {
     int m = predictions.size();
@@ -225,16 +228,4 @@ cv::Mat SortTracker::getIoU(const std::vector<Prediction>& predictions,
     }
 
     return cost;
-}
-
-int SortTracker::getUnusedTag(const std::map<int, TrackedBBox>& tracks) {
-    int previousTag = -1;
-    for (const auto& [tag, _] : tracks) {
-        if (tag > 0 || tag > previousTag + 1) {
-            break;
-        }
-        previousTag = tag;
-    }
-    // No tracks
-    return previousTag + 1;
 }

@@ -106,7 +106,7 @@ class SortTracker : public cv::Algorithm {
 #pragma region Private types
 
     /**
-     * @brief Predicted {Tag, BBox} pair 
+     * @brief Predicted {Tag, BBox} pair
      */
     using Prediction = std::pair<int, cv::Rect2f>;
 
@@ -124,7 +124,8 @@ class SortTracker : public cv::Algorithm {
     std::vector<int> _matchesReversed;
 
     /**
-     * @brief Linear assignment problem solver used for bbox association across frames
+     * @brief Linear assignment problem solver used for bbox association across
+     * frames
      */
     LAPSolver _lapSolver;
 
@@ -135,6 +136,7 @@ class SortTracker : public cv::Algorithm {
     float _minTrajectoryFallingDistance;
     float _iouThreshold;
 
+    int _tagCount;
     int _frameCount;
 
 #pragma endregion
@@ -143,18 +145,18 @@ class SortTracker : public cv::Algorithm {
 
     /**
      * @brief Update all tracked bboxes with detections
-     * 
+     *
      * @param detections Detected bboxes
-     * @return  
+     * @return
      */
     void updateTracks(const std::vector<cv::Rect2f>& detections);
 
     /**
      * @brief Update all trajectories with existing tracked bboxes
-     * 
+     *
      * @param frame Current frame
      * @param timestamp Current timestamp
-     * @return  
+     * @return
      */
     void updateTrajectories(const cv::Mat& frame, Timestamp timestamp);
 
@@ -191,7 +193,22 @@ class SortTracker : public cv::Algorithm {
      */
     bool isEnded(const Trajectory& trajectory) const;
 
+    /**
+     * @brief Tells whether this trajectory is a valid trajectory of a falling
+     * object
+     *
+     * @param trajectory Tracked trajectory
+     * @return  True: this trajectory is valid
+     *          False: this trajectory is invalid
+     */
     bool isFallingObjectTrajectory(const Trajectory& trajectory) const;
+
+    /**
+     * @brief Allocate an tag for new track
+     *
+     * @return  Unused tag
+     */
+    int getUnusedTag();
 
 #pragma endregion
 
@@ -199,21 +216,13 @@ class SortTracker : public cv::Algorithm {
 
     /**
      * @brief Calculate IoU matrix between predicted and detected bboxes
-     * 
-     * @param predictions 
-     * @param detections 
-     * @return  
+     *
+     * @param predictions
+     * @param detections
+     * @return
      */
     static cv::Mat getIoU(const std::vector<Prediction>& predictions,
                           const std::vector<cv::Rect2f>& detections);
-
-    /**
-     * @brief Allocate an unused tag for new track
-     * 
-     * @param tracks Current tracked bboxes
-     * @return  Unused tag
-     */
-    static int getUnusedTag(const std::map<int, TrackedBBox>& tracks);
 
 #pragma endregion
 };
