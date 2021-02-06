@@ -19,15 +19,17 @@ constexpr std::string_view videoFilename =
 int main(int argc, char* argv[]) {
     // auto reader = VideoReader(
     //     videoFilename,
-    //     VideoReaderParams{.rotateFlag = cv::RotateFlags::ROTATE_90_CLOCKWISE,
+    //     VideoReaderParams{.hardwareAcceleration = "videotoolbox",
+    //                       .rotateFlag = cv::RotateFlags::ROTATE_90_CLOCKWISE,
     //                       .resize = {720, 1280}});
 
-
-    auto reader = VideoReader(
-        "localhost",
-        "live",
-        554,
-        VideoReaderParams{.rtspTransport = "tcp", .resize = {0, 0}});
+    auto reader =
+        VideoReader("localhost",
+                    "live",
+                    554,
+                    VideoReaderParams{.hardwareAcceleration = "videotoolbox",
+                                      .rtspTransport = "tcp",
+                                      .resize = {0, 0}});
 
     int fps = static_cast<int>(std::round(reader.getFPS()));
 

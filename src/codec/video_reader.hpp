@@ -17,6 +17,7 @@ extern "C" {
  * @brief Additional parameters for VideoReader class
  */
 struct VideoReaderParams {
+    std::string_view hardwareAcceleration = "";
     /**
      * @brief RTSP receive buffer size (bytes)
      */
@@ -142,9 +143,12 @@ class VideoReader {
     AVDictionary* _avFormatOptions;
 
     AVCodecContext* _avDecoderContext;
+    AVBufferRef* _avHwDeviceContext;
+    AVPixelFormat _avHwPixelFormat;
 
     AVPacket* _avPacket;
     AVFrame* _avFrameRaw;
+    AVFrame* _avFrameSw;
     AVFrame* _avFrameBGR24;
 
 #if !defined(ROCKCHIP_PLATFORM)

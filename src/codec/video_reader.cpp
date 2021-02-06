@@ -15,8 +15,11 @@ VideoReader::VideoReader()
     : _avFormatContext(nullptr),
       _avFormatOptions(nullptr),
       _avDecoderContext(nullptr),
+      _avHwDeviceContext(nullptr),
+      _avHwPixelFormat(AVPixelFormat::AV_PIX_FMT_NONE),
       _avPacket(nullptr),
       _avFrameRaw(nullptr),
+      _avFrameSw(nullptr),
       _avFrameBGR24(nullptr),
       _frameCount(0) {
     // Allocate necessary objects
@@ -155,6 +158,52 @@ void VideoReader::open(std::string_view path, const VideoReaderParams& params) {
     // Enable multi-threaded decoding
     _avDecoderContext->thread_count = cv::getNumberOfCPUs();
     _avDecoderContext->thread_type = FF_THREAD_FRAME;
+
+    // Try to get hardware device type
+    auto hwDeiveType =
+        av_hwdevice_find_type_by_name(params.hardwareAcceleration.data());
+
+    if (hwDeiveType == AV_HWDEVICE_TYPE_NONE) {
+        av_log(nullptr,
+               AV_LOG_INFO,
+               "Hardware acceleration '%s' is not supported\n",
+               params.hardwareAcceleration.data());
+    } else {
+        for (int i = 0;; i++) {
+            const auto* hwConfig = avcodec_get_hw_config(avDecoder, i);
+            if (hwConfig == nullptr) {
+                av_log(nullptr,
+                       AV_LOG_INFO,
+                       "Decoder %s does not support hardware device type %s\n",
+                       avDecoder->name,
+                       av_hwdevice_get_type_name(hwDeiveType));
+                break;
+            }
+
+            if (hwConfig->device_type == hwDeiveType &&
+                (hwConfig->methods & AV_CODEC_HW_CONFIG_METHOD_HW_DEVICE_CTX) !=
+                    0) {
+                _avHwPixelFormat = hwConfig->pix_fmt;
+                break;
+            }
+        }
+
+        if (_avHwPixelFormat != AVPixelFormat::AV_PIX_FMT_NONE) {
+            err = av_hwdevice_ctx_create(
+                &_avHwDeviceContext, hwDeiveType, nullptr, nullptr, 0);
+
+            if (err < 0) {
+                av_log(nullptr,
+                       AV_LOG_ERROR,
+                       "Failed to create hardware context, error: %d\n",
+                       err);
+            } else {
+                _avFrameSw = av_frame_alloc();
+                _avDecoderContext->hw_device_ctx =
+                    av_buffer_ref(_avHwDeviceContext);
+            }
+        }
+    }
 
     err = avcodec_parameters_to_context(_avDecoderContext, stream->codecpar);
     if (err < 0) {
@@ -340,12 +389,29 @@ bool VideoReader::postProcess(cv::Mat& frame) {
     }
 
 #else
+    // If hardware acceleration is enabled, it is necessary to copy the data
+    // from device to memory
+    AVFrame* avFrameSrc = nullptr;
+    if (_avFrameRaw->format == _avHwPixelFormat) {
+        err = av_hwframe_transfer_data(_avFrameSw, _avFrameRaw, 0);
+        if (err < 0) {
+            av_log(
+                nullptr,
+                AV_LOG_ERROR,
+                "Failed to transfer frame from device to memory, error: %d\n",
+                err);
+            return false;
+        }
+        avFrameSrc = _avFrameSw;
+    } else {
+        avFrameSrc = _avFrameRaw;
+    }
     // Get cached SwsContext object (do not free the object afterwards)
     _swsContext =
         sws_getCachedContext(_swsContext,
                              _widthRaw,
                              _heightRaw,
-                             static_cast<AVPixelFormat>(_avFrameRaw->format),
+                             static_cast<AVPixelFormat>(avFrameSrc->format),
                              _avFrameBGR24->width,
                              _avFrameBGR24->height,
                              AVPixelFormat::AV_PIX_FMT_BGR24,
@@ -361,10 +427,10 @@ bool VideoReader::postProcess(cv::Mat& frame) {
 
     // Convert color space & resize
     err = sws_scale(_swsContext,
-                    _avFrameRaw->data,
-                    _avFrameRaw->linesize,
+                    avFrameSrc->data,
+                    avFrameSrc->linesize,
                     0,
-                    _avFrameRaw->height,
+                    _heightRaw,
                     _avFrameBGR24->data,
                     _avFrameBGR24->linesize);
 
@@ -410,12 +476,14 @@ void VideoReader::close() {
 
     av_packet_free(&_avPacket);
     av_frame_free(&_avFrameRaw);
+    av_frame_free(&_avFrameSw);
     av_frame_free(&_avFrameBGR24);
 
     av_dict_free(&_avFormatOptions);
     avformat_close_input(&_avFormatContext);
     avformat_free_context(_avFormatContext);
     avcodec_free_context(&_avDecoderContext);
+    av_buffer_unref(&_avHwDeviceContext);
 
     _isOpened = false;
 }
