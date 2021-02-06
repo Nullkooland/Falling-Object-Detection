@@ -26,8 +26,9 @@
                 "data/apartment.264",
                 // "data/office_building_floor_15.avi",
                 "--resize",
-                "720",
+                "720x1280",
                 "--rotate",
+                "90",
                 "--max_blob_count",
                 "64"
             ],
