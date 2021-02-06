@@ -187,7 +187,7 @@ int main(int argc, char* argv[]) {
                                           file,
                                           port,
                                           VideoReaderParams{
-                                              .bufferSize = bufferSize,
+                                              .receiveBufferSize = bufferSize,
                                               .rtspTransport = protocol,
                                               .rotateFlag = rotateFlag,
                                               .resize = resize,

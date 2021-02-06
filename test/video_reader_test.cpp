@@ -1,5 +1,6 @@
 #include "video_reader.hpp"
 
+#include <cmath>
 #include <opencv2/core.hpp>
 
 #if defined(ROCKCHIP_PLATFORM)
@@ -16,12 +17,19 @@ constexpr std::string_view videoFilename =
 #endif
 
 int main(int argc, char* argv[]) {
-    auto reader = VideoReader(
-        videoFilename,
-        VideoReaderParams{.rotateFlag = cv::RotateFlags::ROTATE_90_CLOCKWISE,
-                          .resize = {720, 1280}});
+    // auto reader = VideoReader(
+    //     videoFilename,
+    //     VideoReaderParams{.rotateFlag = cv::RotateFlags::ROTATE_90_CLOCKWISE,
+    //                       .resize = {720, 1280}});
 
-    int fps = static_cast<int>(reader.getFPS());
+
+    auto reader = VideoReader(
+        "localhost",
+        "live",
+        554,
+        VideoReaderParams{.rtspTransport = "tcp", .resize = {0, 0}});
+
+    int fps = static_cast<int>(std::round(reader.getFPS()));
 
     cv::Mat frame;
     cv::TickMeter tm;
@@ -29,6 +37,7 @@ int main(int argc, char* argv[]) {
     while (true) {
         tm.reset();
         tm.start();
+
         if (!reader.read(frame)) {
             break;
         }

@@ -55,8 +55,9 @@
                 "--file",
                 "/home/goose_bomb/cv/videos/apartment.264",
                 "--resize",
-                "720",
-                "--rotate"
+                "720x1280",
+                "--rotate",
+                "90",
             ],
             "console": "internalConsole",
             "internalConsoleOptions": "openOnSessionStart",

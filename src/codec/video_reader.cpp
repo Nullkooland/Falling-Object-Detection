@@ -36,20 +36,20 @@ VideoReader::VideoReader(const std::string& addr,
     : VideoReader() {
 
     av_dict_set(&_avFormatOptions,
-                "buffer_size\n",
-                std::to_string(params.bufferSize).c_str(),
+                "buffer_size",
+                std::to_string(params.receiveBufferSize).c_str(),
                 0);
 
     av_dict_set(
-        &_avFormatOptions, "rtsp_transport\n", params.rtspTransport.data(), 0);
+        &_avFormatOptions, "rtsp_transport", params.rtspTransport.data(), 0);
 
     av_dict_set(&_avFormatOptions,
-                "stimeout\n",
+                "stimeout",
                 std::to_string(params.connectionTimeoutUs).c_str(),
                 0);
 
     av_dict_set(&_avFormatOptions,
-                "max_delay\n",
+                "max_delay",
                 std::to_string(params.maxDelayUs).c_str(),
                 0);
 
@@ -151,6 +151,11 @@ void VideoReader::open(std::string_view path, const VideoReaderParams& params) {
 
     // Set up decoder
     _avDecoderContext = avcodec_alloc_context3(avDecoder);
+
+    // Enable multi-threaded decoding
+    _avDecoderContext->thread_count = cv::getNumberOfCPUs();
+    _avDecoderContext->thread_type = FF_THREAD_FRAME;
+
     err = avcodec_parameters_to_context(_avDecoderContext, stream->codecpar);
     if (err < 0) {
         av_log(
@@ -190,7 +195,7 @@ bool VideoReader::read(cv::Mat& frame) {
 
         // End of stream
         if (err == AVERROR_EOF) {
-            break;
+            return false;
         }
 
         if (numErrors > MAX_NUM_ERRORS) {
@@ -203,12 +208,18 @@ bool VideoReader::read(cv::Mat& frame) {
 
         // Send the packet to decoder
         err = avcodec_send_packet(_avDecoderContext, _avPacket);
+
+        // if (err == AVERROR(EAGAIN)) {
+        //     continue;
+        // }
+
         if (err < 0) {
             av_log(nullptr,
                    AV_LOG_ERROR,
                    "Failed to send packet to decoder, error: %d\n",
                    err);
-            break;
+            numErrors++;
+            continue;
         }
 
         // Receive frame from decoder
@@ -221,7 +232,7 @@ bool VideoReader::read(cv::Mat& frame) {
 
         // End of stream
         if (err == AVERROR_EOF) {
-            break;
+            return false;
         }
 
         if (err < 0) {
@@ -229,7 +240,8 @@ bool VideoReader::read(cv::Mat& frame) {
                    AV_LOG_ERROR,
                    "Failed to receive frame from decoder, error: %d\n",
                    err);
-            break;
+            numErrors++;
+            continue;
         }
 
         hasGotFrame = true;

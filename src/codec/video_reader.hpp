@@ -20,7 +20,7 @@ struct VideoReaderParams {
     /**
      * @brief RTSP receive buffer size (bytes)
      */
-    size_t bufferSize = 1024 * 256;
+    size_t receiveBufferSize = 1024 * 256;
 
     /**
      * @brief Connection timeout (us)
