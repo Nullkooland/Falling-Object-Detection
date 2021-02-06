@@ -173,8 +173,7 @@ bool SortTracker::canKeep(const TrackedBBox& track) const {
 }
 
 bool SortTracker::canPick(const TrackedBBox& track) const {
-    return track.getHitStreak() >= _minBBoxHitStreak ||
-           track.getHitCount() >= _maxTrajectoryAge;
+    return track.getHitStreak() >= _minBBoxHitStreak;
 }
 
 bool SortTracker::isEnded(const Trajectory& trajectory) const {

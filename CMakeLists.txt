@@ -52,6 +52,7 @@ set(PROJ_SRCS
     src/main.cpp
     src/utils.cpp
     src/codec/decoder.cpp
+    src/codec/video_reader.cpp
     src/bgsegm/vibe_sequential.cpp
     src/tracker/kalman_filter.cpp
     src/tracker/tracker.cpp
