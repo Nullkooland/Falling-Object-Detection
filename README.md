@@ -10,7 +10,6 @@ This is a video analysis system that can detect and track falling objects from a
 - [OpenCV](https://github.com/opencv/opencv) 4.5
 - [FFMpeg](https://ffmpeg.org) 4.3.1
 - [argparse](https://github.com/p-ranav/argparse)
-- [libvibe++](http://www.telecom.ulg.ac.be/research/vibe/doc2/index.html)
 - [Rockchip-RGA](https://github.com/rockchip-linux/linux-rga)
 
 ## Demonstration
