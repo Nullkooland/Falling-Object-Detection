@@ -1,1 +1,22 @@
-Checks: "-*,clang-analyzer-*,-clang-analyzer-osx,-clang-analyzer-optin.osx,-clang-analyzer-webkit,modernize-*,-modernize-use-trailing-return-type,-modernize-use-nodiscard,readability-*,-readability-magic-numbers,performance-*"
+Checks: "-*,clang-diagnostic-*,clang-analyzer-*,-clang-analyzer-osx,-clang-analyzer-optin.osx,-clang-analyzer-webkit,modernize-*,-modernize-use-trailing-return-type,-modernize-use-nodiscard,readability-*,-readability-magic-numbers,performance-*"
+
+CheckOptions:
+  # Specify naming convention
+  - key: readability-identifier-naming.VariableCase
+    value: camelBack
+  - key: readability-identifier-naming.ConstantCase
+    value: UPPER_CASE
+  - key: readability-identifier-naming.MethodCase
+    value: camelBack
+  - key: readability-identifier-naming.ClassMemberCase
+    value: camelBack
+  - key: readability-identifier-naming.ClassMemberPrefix
+    value: _
+  - key: readability-identifier-naming.ClassCase
+    value: CamelCase
+  - key: readability-identifier-naming.StructCase
+    value: CamelCase
+  - key: readability-identifier-naming.TypeAliasCase
+    value: CamelCase
+  - key: readability-identifier-naming.TemplateParameterCase
+    value: CamelCase
