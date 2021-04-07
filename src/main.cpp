@@ -168,12 +168,13 @@ int main(int argc, char* argv[]) {
 
     // Open local media file
     if (isLocalFile) {
-        videoReader =
-            std::make_unique<VideoReader>(file,
-                                          VideoReaderParams{
-                                              .rotateFlag = rotateFlag,
-                                              .resize = resize,
-                                          });
+        videoReader = std::make_unique<VideoReader>(
+            file,
+            VideoReaderParams{
+                .hardwareAcceleration = "videotoolbox",
+                .rotateFlag = rotateFlag,
+                .resize = resize,
+            });
     } else {
         auto addr = parser.get("--addr");
         auto port = parser.get<uint16_t>("--port");

@@ -205,18 +205,19 @@ void VideoReader::open(std::string_view path, const VideoReaderParams& params) {
         }
     }
 
-    err = avcodec_parameters_to_context(_avDecoderContext, stream->codecpar);
-    if (err < 0) {
-        av_log(
-            nullptr, AV_LOG_ERROR, "Failed to setup decoder, error: %d\n", err);
-        return;
-    }
-
     // Open decoder
     err = avcodec_open2(_avDecoderContext, avDecoder, nullptr);
     if (err < 0) {
         av_log(
             nullptr, AV_LOG_ERROR, "Failed to open decoder, error: %d\n", err);
+        return;
+    }
+
+    // Copy decoder parameters
+    err = avcodec_parameters_to_context(_avDecoderContext, stream->codecpar);
+    if (err < 0) {
+        av_log(
+            nullptr, AV_LOG_ERROR, "Failed to setup decoder, error: %d\n", err);
         return;
     }
 
